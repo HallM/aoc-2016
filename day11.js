@@ -13,28 +13,28 @@ The fourth floor contains nothing relevant.
 // 32 = typeE MC elerium
 // 64 = typeD MC dilithium
 
-// 256 = typeT G thulium
-// 512 = typeP G plutonium
-// 1024 = typeS G strontium
-// 2048 = typeM G promethium
-// 4096 = typeR G ruthenium
-// 8192 = typeE G elerium
-// 16384 = typeD G dilithium
+// 128 = typeT G thulium
+// 256 = typeP G plutonium
+// 512 = typeS G strontium
+// 1024 = typeM G promethium
+// 2048 = typeR G ruthenium
+// 4096 = typeE G elerium
+// 8192 = typeD G dilithium
 
 // if we had 64-bit... we could have done this. but nooo, JS is 32-bit.
 // const startfloors = (1 | 256 | 512 | 1024 | 32 | 64 | 8192 | 16384) | ((2 | 4) << 16) | ((8 | 16 | 2048 | 4096) << 32);
 const startfloors = [
-  (1 | 256 | 512 | 1024 | 32 | 64 | 8192 | 16384),
+  (1 | 128 | 256 | 512 | 32 | 64 | 4096 | 8192),
   (2 | 4),
-  (8 | 16 | 2048 | 4096),
+  (8 | 16 | 1024 | 2048),
   0
 ];
 
 const allMcs = 1 | 2 | 4 | 8 | 16 | 32 | 64;
-const allGens = 256 | 512 | 1024 | 2048 | 4096 | 8192 | 16384;
+const allGens = 128 | 256 | 512 | 1024 | 2048 | 4096 | 8192;
 const finalSolution = allMcs | allGens;
 
-let runners = [{current: 0, floors: startfloors, prev: []}];
+let runners = [{current: 0, floors: startfloors}];
 
 // using an array of hashmaps for floors. odd, but eh. itll work. first level is elevator, second level is f0, ...
 let prevStates = [{}, {}, {}, {}];
@@ -64,8 +64,8 @@ function makeFloors(prev, newItems, oldFloor, newFloor) {
 function addPath(next, floor) {
   // to reduce the number of hashmaps we have, going to use the full 32-bit int space for the hash
   // we use 2 hashes, so it is a hash in a hash in an array
-  const hash1 = next[0] | (next[1] << 8);
-  const hash2 = next[2] | (next[3] << 8);
+  const hash1 = next[0] | (next[1] << 14);
+  const hash2 = next[2] | (next[3] << 14);
 
   let pv = prevStates[floor];
   let v = pv;
@@ -83,8 +83,8 @@ function addPath(next, floor) {
 }
 
 function isDoneBefore(next, floor) {
-  const hash1 = next[0] | (next[1] << 8);
-  const hash2 = next[2] | (next[3] << 8);
+  const hash1 = next[0] | (next[1] << 14);
+  const hash2 = next[2] | (next[3] << 14);
 
   const v = prevStates[floor][hash1];
   if (!v) {
@@ -94,50 +94,20 @@ function isDoneBefore(next, floor) {
   return v[hash2] === true;
 }
 
-function hasMatchingGenerator(items, mc) {
-  const gen = mc << 8;
-  return (items & gen) !== 0;
-}
-function hasMatchingMicrochip(items, gen) {
-  const mc = gen >> 8;
-  return (items & mc) !== 0;
-}
-
-function hasAnyGenerator(items) {
-  return (items & allGens) !== 0;
-}
-
 function wouldGroupBeOk(items) {
   // if one generator exists:
   // then every microchip must have a matching generator
+  const gens = (items >> 7) & 0x7F;
 
-  if (!hasAnyGenerator(items)) {
+  if (gens === 0) {
     return true;
   }
 
-  if ((items & 1) !== 0 && !hasMatchingGenerator(items, 1)) {
-    return false;
-  }
-  if ((items & 2) !== 0 && !hasMatchingGenerator(items, 2)) {
-    return false;
-  }
-  if ((items & 4) !== 0 && !hasMatchingGenerator(items, 4)) {
-    return false;
-  }
-  if ((items & 8) !== 0 && !hasMatchingGenerator(items, 8)) {
-    return false;
-  }
-  if ((items & 16) !== 0 && !hasMatchingGenerator(items, 16)) {
-    return false;
-  }
-  if ((items & 32) !== 0 && !hasMatchingGenerator(items, 32)) {
-    return false;
-  }
-  if ((items & 64) !== 0 && !hasMatchingGenerator(items, 64)) {
-    return false;
-  }
+  const mcs = items & 0x7F;
 
-  return true;
+  // when gen is 1, then we ignore that mc
+  // when gen is 0, we need to know if the mc exists. basically AND mc with NOT gen
+  return (mcs & ~(gens)) === 0;
 }
 
 function wouldAllFloorsBeOk(floors) {
@@ -164,16 +134,14 @@ function run(nextrunners, runner) {
   const canGoUp = floor < 3;
   const canGoDown = floor > 0;
 
-  let addedOne = false;
-
-  for (let i = 1; i <= 16384; i = i << 1) {
+  for (let i = 1; i <= 8192; i = i << 1) {
     if ((floorItems & i) === 0) {
       continue;
     }
 
     // start at i, because i can travel alone
     // when j === i, it is basically i travelling alone. helps reduce code
-    for (let j = i; j <= 16384; j = j << 1) {
+    for (let j = i; j <= 8192; j = j << 1) {
       if ((floorItems & j) === 0) {
         continue;
       }
@@ -183,7 +151,6 @@ function run(nextrunners, runner) {
       if (canGoUp) {
         const nextFloors = makeFloors(runner.floors, ij, floor, upFloor);
         if (wouldAllFloorsBeOk(nextFloors) && !isDoneBefore(nextFloors, upFloor)) {
-          addedOne = true;
           nextrunners.push({
             current: upFloor,
             floors: nextFloors
@@ -194,7 +161,6 @@ function run(nextrunners, runner) {
       if (canGoDown) {
         const nextFloors = makeFloors(runner.floors, ij, floor, downFloor);
         if (wouldAllFloorsBeOk(nextFloors) && !isDoneBefore(nextFloors, downFloor)) {
-          addedOne = true;
           nextrunners.push({
             current: downFloor,
             floors: nextFloors

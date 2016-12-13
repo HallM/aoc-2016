@@ -33,8 +33,6 @@ class Day11 {
     }
 
     public boolean makeRunners(ArrayList<Runner> nextRunners) {
-      // printState(this.currentState);
-
       final int floorIndex = Day11.getElevator(this.currentState);
       final long floorItems = Day11.getFloorItems(this.currentState, floorIndex);
 
@@ -102,14 +100,12 @@ class Day11 {
       iterations++;
       System.out.printf("iter: %d %d\n", iterations, nextRunners.size());
       this.currentRunners = nextRunners;
-      // break;
     }
 
     return -1;
   }
 
   public boolean addVisitedStateIfUnvisited(final long state) {
-    // printState(state);
     return this.seenStates.add(state);
   }
 
@@ -120,60 +116,6 @@ class Day11 {
   }
 
   // utility functions
-  public static void printState(final long state) {
-    System.out.printf("Elevator at: %d\n", getElevator(state) + 1);
-    for (int i = 0; i < 4; i++) {
-      System.out.printf("Floor %d:\n", i+1);
-      printFloorState(getFloorItems(state, i));
-    }
-  }
-
-  public static void printFloorState(final long floorItems) {
-    if ((floorItems & 1) != 0) {
-      System.out.println("thulium microchip");
-    }
-    if ((floorItems & 2) != 0) {
-      System.out.println("plutonium microchip");
-    }
-    if ((floorItems & 4) != 0) {
-      System.out.println("strontium microchip");
-    }
-    if ((floorItems & 8) != 0) {
-      System.out.println("promethium microchip");
-    }
-    if ((floorItems & 16) != 0) {
-      System.out.println("ruthenium microchip");
-    }
-    if ((floorItems & 32) != 0) {
-      System.out.println("elerium microchip");
-    }
-    if ((floorItems & 64) != 0) {
-      System.out.println("dilithium microchip");
-    }
-
-    if ((floorItems & 128) != 0) {
-      System.out.println("thulium generator");
-    }
-    if ((floorItems & 256) != 0) {
-      System.out.println("plutonium generator");
-    }
-    if ((floorItems & 512) != 0) {
-      System.out.println("strontium generator");
-    }
-    if ((floorItems & 1024) != 0) {
-      System.out.println("promethium generator");
-    }
-    if ((floorItems & 2048) != 0) {
-      System.out.println("ruthenium generator");
-    }
-    if ((floorItems & 4096) != 0) {
-      System.out.println("elerium generator");
-    }
-    if ((floorItems & 8192) != 0) {
-      System.out.println("dilithium generator");
-    }
-  }
-
   public static long getFloorItems(final long state, final int floorIndex) {
     final long shift = floorShifts[floorIndex];
     return (state >> shift) & oneFloorMask;
@@ -194,15 +136,6 @@ class Day11 {
 
     return newStateNoElevator | elevatorState;
   }
-
-  // public static boolean hasMatchingGenerator(final long groupItems, final long mcId) {
-  //   final long genId = mcId << generatorShift;
-  //   return (groupItems & genId) != 0;
-  // }
-  // public static boolean hasMatchingMicrochip(final long groupItems, final long genId) {
-  //   final long mcId = genId >> generatorShift;
-  //   return (groupItems & mcId) != 0;
-  // }
 
   public static boolean wouldGroupBeOk(final long groupItems) {
     final long gens = (groupItems >> generatorShift) & halfFloorMask;
