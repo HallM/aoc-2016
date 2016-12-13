@@ -106,7 +106,8 @@ class Day11 {
   }
 
   public boolean addVisitedStateIfUnvisited(final long state) {
-    return this.seenStates.add(state);
+    final long hash = hashState(state);
+    return this.seenStates.add(hash);
   }
 
   public static void main(String[] args) {
@@ -160,6 +161,45 @@ class Day11 {
     }
 
     return true;
+  }
+
+  // optimize by understanding that states can be equivalent. a row with 1 pair is the same as any other row with 1 pair.
+  public static long hashState(final long state) {
+    return (
+      (hashFloor(getFloorItems(state, 0)) << floorShifts[0])
+      | (hashFloor(getFloorItems(state, 1)) << floorShifts[1])
+      | (hashFloor(getFloorItems(state, 2)) << floorShifts[2])
+      | (hashFloor(getFloorItems(state, 3)) << floorShifts[3])
+      | ((long)getElevator(state) << elevatorShift)
+    );
+  }
+
+  // the hash basically shifts the combinations in a way that still tracks matching "pairs"
+  // yet if both MC and G are missing, it shifts it out of the way
+  public static long hashFloor(final long floorItems) {
+    long mcs = floorItems & halfFloorMask;
+    long gens = (floorItems >> generatorShift) & halfFloorMask;
+
+    long hashMc = 0;
+    long hashGen = 0;
+
+    while (mcs != 0 || gens != 0) {
+      if ((mcs & 1) == 1 && (gens & 1) == 1) {
+        hashMc = (hashMc << 1) | 1;
+        hashGen = (hashGen << 1) | 1;
+      } else if ((mcs & 1) == 1) {
+        hashMc = (hashMc << 1) | 1;
+        hashGen = (hashGen << 1);
+      } else if ((gens & 1) == 1) {
+        hashMc = (hashMc << 1);
+        hashGen = (hashGen << 1) | 1;
+      }
+
+      mcs = mcs >> 1;
+      gens = gens >> 1;
+    }
+
+    return hashMc | (hashGen << generatorShift);
   }
 
 }
