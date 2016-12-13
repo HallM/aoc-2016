@@ -21,22 +21,32 @@ fn main() {
   let mut states: Vec<u64> = vec![INIT_STATE];
   let mut iterations = 0;
 
-  'mainloop: while states.len() > 0 {
-    let mut next_states = Vec::new();
-
-    for state in states {
-      let res = run_state(&mut next_states, &mut seen, state);
-      if res {
+  while states.len() > 0 {
+    states = match run_iteration(states, &mut seen) {
+      Some(next_states) => next_states,
+      None => {
         println!("done in {} iterations", iterations);
-        break 'mainloop;
-      }
+        vec![]
+      },
     };
 
     iterations = iterations + 1;
-    println!("iter: {} {}", iterations, next_states.len());
-
-    states = next_states;
+    println!("iter: {} {}", iterations, states.len());
   }
+}
+
+fn run_iteration(states: Vec<u64>, seen: &mut HashSet<u64>) -> Option<Vec<u64>> {
+  let mut next_states = Vec::new();
+
+  for state in states {
+    let res = run_state(&mut next_states, seen, state);
+    if res {
+      // println!("done in {} iterations", iterations);
+      return None;
+    }
+  };
+
+  Some(next_states)
 }
 
 fn run_state(next_states: &mut Vec<u64>, seen: &mut HashSet<u64>, current_state: u64) -> bool {
