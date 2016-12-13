@@ -186,8 +186,7 @@ function run(nextrunners, runner) {
           addedOne = true;
           nextrunners.push({
             current: upFloor,
-            floors: nextFloors,
-            prev: nextPrev
+            floors: nextFloors
           });
           addPath(nextFloors, upFloor);
         }
@@ -198,8 +197,7 @@ function run(nextrunners, runner) {
           addedOne = true;
           nextrunners.push({
             current: downFloor,
-            floors: nextFloors,
-            prev: nextPrev
+            floors: nextFloors
           });
           addPath(nextFloors, downFloor);
         }
