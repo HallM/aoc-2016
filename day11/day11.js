@@ -64,8 +64,10 @@ function makeFloors(prev, newItems, oldFloor, newFloor) {
 function addPath(next, floor) {
   // to reduce the number of hashmaps we have, going to use the full 32-bit int space for the hash
   // we use 2 hashes, so it is a hash in a hash in an array
-  const hash1 = next[0] | (next[1] << 14);
-  const hash2 = next[2] | (next[3] << 14);
+  // const hash1 = next[0] | (next[1] << 14);
+  // const hash2 = next[2] | (next[3] << 14);
+  const hash1 = computeHash(next[0], next[1]);
+  const hash2 = computeHash(next[2], next[3]);
 
   let pv = prevStates[floor];
   let v = pv;
@@ -83,8 +85,11 @@ function addPath(next, floor) {
 }
 
 function isDoneBefore(next, floor) {
-  const hash1 = next[0] | (next[1] << 14);
-  const hash2 = next[2] | (next[3] << 14);
+  computeHash
+  // const hash1 = next[0] | (next[1] << 14);
+  // const hash2 = next[2] | (next[3] << 14);
+  const hash1 = computeHash(next[0], next[1]);
+  const hash2 = computeHash(next[2], next[3]);
 
   const v = prevStates[floor][hash1];
   if (!v) {
@@ -172,6 +177,36 @@ function run(nextrunners, runner) {
   }
 
   return nextrunners;
+}
+
+function computeFloorHash(floorItems) {
+  let mcs = floorItems & 0x7F;
+  let gens = (floorItems >> 7) & 0x7F;
+
+  let hash_mc = 0;
+  let hash_gen = 0;
+
+  while (mcs != 0 || gens != 0) {
+    if ((mcs & 1) == 1 && (gens & 1) == 1) {
+      hash_mc = (hash_mc << 1) | 1;
+      hash_gen = (hash_gen << 1) | 1;
+    } else if ((mcs & 1) == 1) {
+      hash_mc = (hash_mc << 1) | 1;
+      hash_gen = hash_gen << 1;
+    } else if ((gens & 1) == 1) {
+      hash_mc = hash_mc << 1;
+      hash_gen = (hash_gen << 1) | 1;
+    }
+
+    mcs = mcs >> 1;
+    gens = gens >> 1;
+  }
+
+  return hash_mc | (hash_gen << 7);
+}
+
+function computeHash(floor0, floor1) {
+  return computeFloorHash(floor0) | (computeFloorHash(floor1) << 14);
 }
 
 let iterations = 0;
