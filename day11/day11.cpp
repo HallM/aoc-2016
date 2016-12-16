@@ -209,6 +209,24 @@ StateType make_new_state(StateType old_state, StateType changed_items, FloorType
   return new_state_no_elevator | elevator_state;
 }
 
+// bool would_group_be_ok(StateType group_items) {
+//   // because it is premasked to 14 bits, shifting 7 bits needs no mask
+//   StateType gens = group_items >> GENERATOR_SHIFT;
+//   StateType mcs = group_items & HALF_FLOOR_MASK;
+
+//   // if there's no generators, then the group is good. otherwise,
+//   // when gen is 1, then we ignore that mc
+//   // when gen is 0, we need to know if the mc exists. basically AND mc with NOT gen
+//   return gens == 0 || (mcs & ~(gens)) == 0;
+// }
+
+// bool would_state_be_ok(StateType state) {
+//   return would_group_be_ok(get_floor_items(state, 0)) &&
+//     would_group_be_ok(get_floor_items(state, 1)) &&
+//     would_group_be_ok(get_floor_items(state, 2)) &&
+//     would_group_be_ok(get_floor_items(state, 3));
+// }
+
 bool would_group_be_ok(StateType group_items) {
   // because it is premasked to 14 bits, shifting 7 bits needs no mask
   StateType gens = group_items >> GENERATOR_SHIFT;
@@ -217,14 +235,24 @@ bool would_group_be_ok(StateType group_items) {
   // if there's no generators, then the group is good. otherwise,
   // when gen is 1, then we ignore that mc
   // when gen is 0, we need to know if the mc exists. basically AND mc with NOT gen
-  return gens == 0 || (mcs & ~(gens)) == 0;
+  return gens == 0 || mcs == 0;
 }
 
 bool would_state_be_ok(StateType state) {
-  return would_group_be_ok(get_floor_items(state, 0)) &&
-    would_group_be_ok(get_floor_items(state, 1)) &&
-    would_group_be_ok(get_floor_items(state, 2)) &&
-    would_group_be_ok(get_floor_items(state, 3));
+  // thoughts:
+  // floor & (~gens)
+  // basically leaving gens in the floor, then & with ~gen
+  // allows the gens to pass through
+  // so what you end up with is upper 7 = gen state
+  // lower 7 = unpaired MCs
+
+  StateType allgens = (state & ALL_FLOORS_MASK) >> GENERATOR_SHIFT;
+  StateType test = state & (~allgens);
+
+  return would_group_be_ok(get_floor_items(test, 0)) &&
+    would_group_be_ok(get_floor_items(test, 1)) &&
+    would_group_be_ok(get_floor_items(test, 2)) &&
+    would_group_be_ok(get_floor_items(test, 3));
 }
 
 // optimize by understanding that states can be equivalent. a row with 1 pair is the same as any other row with 1 pair.
@@ -242,8 +270,8 @@ StateType hash_floor(StateType floor_items) {
   StateType mcs = floor_items & HALF_FLOOR_MASK;
   StateType gens = floor_items >> GENERATOR_SHIFT;
 
-  StateType hash_mc = __builtin_popcount(mcs);
-  StateType hash_gen = __builtin_popcount(gens);
+  StateType hash_mc = __builtin_popcountll(mcs);
+  StateType hash_gen = __builtin_popcountll(gens);
 
   return hash_mc | (hash_gen << GENERATOR_SHIFT);
 }
