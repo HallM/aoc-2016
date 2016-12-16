@@ -70,7 +70,7 @@ int main() {
     next_states = NULL;
 
     iterations = iterations + 1;
-    cout << "iter " << iterations << " " << states->size() << endl;
+    // cout << "iter " << iterations << " " << states->size() << endl;
     // break;
   }
 
@@ -96,6 +96,29 @@ bool run_iteration(vector<StateType> *next_states, vector<StateType> *states, un
   return false;
 }
 
+void spawnfor(vector<StateType> *next_states, unordered_set<StateType> &seen, StateType current_state, StateType ij, bool can_go_up, bool can_go_down, FloorType floor_index, FloorType up_floor, FloorType down_floor) {
+  if (can_go_up) {
+    StateType next_state = make_new_state(current_state, ij, floor_index, up_floor);
+
+    if (would_state_be_ok(next_state)) {
+      StateType hash = hash_state(next_state);
+      if (seen.insert(hash).second) {
+        next_states->push_back(next_state);
+      }
+    }
+  }
+  if (can_go_down) {
+    StateType next_state = make_new_state(current_state, ij, floor_index, down_floor);
+
+    if (would_state_be_ok(next_state)) {
+      StateType hash = hash_state(next_state);
+      if (seen.insert(hash).second) {
+        next_states->push_back(next_state);
+      }
+    }
+  }
+}
+
 bool run_state(vector<StateType> *next_states, unordered_set<StateType> &seen, StateType current_state) {
   FloorType floor_index = get_elevator(current_state);
   StateType floor_items = get_floor_items(current_state, floor_index);
@@ -110,7 +133,42 @@ bool run_state(vector<StateType> *next_states, unordered_set<StateType> &seen, S
   FloorType up_floor = can_go_up ? (floor_index + 1) : floor_index;
   FloorType down_floor = can_go_down ? (floor_index - 1) : floor_index;
 
-  for (StateType i = 1; i <= 8192; i = i << 1) {
+  // only need to spawn for:
+  // pair
+  // 2 MCs
+  // 2 gens
+  // 1 MC
+  // 1 gen
+
+  // go through MCs
+  // 2nd layer through over MCs
+
+  // last, go through gens
+
+  for (StateType i = 1; i < 128; i = i << 1) {
+    if ((floor_items & i) == 0) {
+      continue;
+    }
+
+    // start at i, because i can travel alone
+    // when j == i, it is basically i travelling alone. helps reduce code
+    for (StateType j = i; j < 128; j = j << 1) {
+      if ((floor_items & j) == 0) {
+        continue;
+      }
+
+      StateType ij = i | j;
+      spawnfor(next_states, seen, current_state, ij, can_go_up, can_go_down, floor_index, up_floor, down_floor);
+    }
+
+    const StateType ourGen = i << GENERATOR_SHIFT;
+    if ((floor_items & ourGen) != 0) {
+      StateType igen = i | ourGen;
+      spawnfor(next_states, seen, current_state, igen, can_go_up, can_go_down, floor_index, up_floor, down_floor);
+    }
+  }
+
+  for (StateType i = 128; i <= 8192; i = i << 1) {
     if ((floor_items & i) == 0) {
       continue;
     }
@@ -123,27 +181,7 @@ bool run_state(vector<StateType> *next_states, unordered_set<StateType> &seen, S
       }
 
       StateType ij = i | j;
-
-      if (can_go_up) {
-        StateType next_state = make_new_state(current_state, ij, floor_index, up_floor);
-
-        if (would_state_be_ok(next_state)) {
-          StateType hash = hash_state(next_state);
-          if (seen.insert(hash).second) {
-            next_states->push_back(next_state);
-          }
-        }
-      }
-      if (can_go_down) {
-        StateType next_state = make_new_state(current_state, ij, floor_index, down_floor);
-
-        if (would_state_be_ok(next_state)) {
-          StateType hash = hash_state(next_state);
-          if (seen.insert(hash).second) {
-            next_states->push_back(next_state);
-          }
-        }
-      }
+      spawnfor(next_states, seen, current_state, ij, can_go_up, can_go_down, floor_index, up_floor, down_floor);
     }
   }
 
@@ -172,7 +210,8 @@ StateType make_new_state(StateType old_state, StateType changed_items, FloorType
 }
 
 bool would_group_be_ok(StateType group_items) {
-  StateType gens = (group_items >> GENERATOR_SHIFT) & HALF_FLOOR_MASK;
+  // because it is premasked to 14 bits, shifting 7 bits needs no mask
+  StateType gens = group_items >> GENERATOR_SHIFT;
   StateType mcs = group_items & HALF_FLOOR_MASK;
 
   // if there's no generators, then the group is good. otherwise,
@@ -194,33 +233,17 @@ StateType hash_state(StateType state) {
     (hash_floor(get_floor_items(state, 1)) << FLOOR_SHIFTS[1]) |
     (hash_floor(get_floor_items(state, 2)) << FLOOR_SHIFTS[2]) |
     (hash_floor(get_floor_items(state, 3)) << FLOOR_SHIFTS[3]) |
-    (((StateType)get_elevator(state)) << ELEVATOR_SHIFT);
+    (state & 0xFF00000000000000ULL);
 }
 
 // the hash basically shifts the combinations in a way that still tracks matching "pairs"
 // yet if both MC and G are missing, it shifts it out of the way
 StateType hash_floor(StateType floor_items) {
   StateType mcs = floor_items & HALF_FLOOR_MASK;
-  StateType gens = (floor_items >> GENERATOR_SHIFT) & HALF_FLOOR_MASK;
+  StateType gens = floor_items >> GENERATOR_SHIFT;
 
-  StateType hash_mc = 0;
-  StateType hash_gen = 0;
-
-  while (mcs != 0 || gens != 0) {
-    if ((mcs & 1) == 1 && (gens & 1) == 1) {
-      hash_mc = (hash_mc << 1) | 1;
-      hash_gen = (hash_gen << 1) | 1;
-    } else if ((mcs & 1) == 1) {
-      hash_mc = (hash_mc << 1) | 1;
-      hash_gen = hash_gen << 1;
-    } else if ((gens & 1) == 1) {
-      hash_mc = hash_mc << 1;
-      hash_gen = (hash_gen << 1) | 1;
-    }
-
-    mcs = mcs >> 1;
-    gens = gens >> 1;
-  }
+  StateType hash_mc = __builtin_popcount(mcs);
+  StateType hash_gen = __builtin_popcount(gens);
 
   return hash_mc | (hash_gen << GENERATOR_SHIFT);
 }
